@@ -202,16 +202,16 @@ where
                 delegate,
                 mut items,
             } => match items.pop_front() {
-                // There is at leats one item in the buffer, so yield it.
+                // There is at least one item in the buffer, so yield it.
                 Some(item) => Poll::Ready(Some(Ok(item))),
                 // There was no item to yield.
                 None => {
                     // Check if we have met or exceeded the number of items expected to be yielded.
                     // Unwrapping `delegate.total_items()` should be safe because it would be
-                    // impossible to be in the `Ready` state if we have not recieved data from the
+                    // impossible to be in the `Ready` state if we have not received data from the
                     // API yet, which is the only situation in which the value here would be `None`.
                     if delegate.offset() >= delegate.total_items().unwrap_or(usize::MAX) {
-                        // All of the items that API is willing to send have been yielded, so set
+                        // All the items that API is willing to send have been yielded, so set
                         // the stream to `Closed` so that any further polls will yield
                         // `Poll::Ready(None)`.
                         self.set(Closed);
