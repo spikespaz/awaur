@@ -1,6 +1,8 @@
+#[cfg(feature = "paginator")]
 pub mod paginator;
 
 pub mod prelude {
+    #[cfg(feature = "paginator")]
     #[doc(inline)]
     pub use paginator::*;
 }
