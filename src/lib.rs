@@ -1,3 +1,10 @@
+pub mod paginator;
+
+pub mod prelude {
+    #[doc(inline)]
+    pub use paginator::*;
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
