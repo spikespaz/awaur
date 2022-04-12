@@ -236,4 +236,19 @@ where
             Indeterminate => unreachable!(),
         }
     }
+
+    /// Currently, it is only possible to get the upper bound from the `Request`
+    /// and `Ready` state. If no request has been made yet, the delegate
+    /// can't know the expected number of items and will therefore return
+    /// `None`. It should be possible to get a value when the state is
+    /// `Pending`, but unfortunately the delegate is locked behind the stack
+    /// frame of the pinned `Future`.
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        use PaginatedStream::*;
+
+        match self {
+            Request { delegate } | Ready { delegate, .. } => (0, delegate.total_items()),
+            _ => (0, None),
+        }
+    }
 }
