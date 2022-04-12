@@ -1,3 +1,10 @@
+//! This module helps you implement pagination over a web API endpoint.
+//!
+//! The only thing that needs to happen for your functions to return
+//! asynchronous paginators (via the [`Stream`] trait) is the implementation of
+//! the [`PaginationDelegate`] trait. See the documentation of the methods on
+//! that trait to see what they should do.
+
 use std::collections::VecDeque;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -5,19 +12,34 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use futures_core::{Future, Stream};
 
+/// This is the trait that needs to be implemented in order to tell the
+/// [`PaginatedStream`] how to keep track of the current page and make requests
+/// to the API.
+///
+/// The indices of the pages are handled automatically, simply
+/// implement `offset` and `set_offset` correctly to ensure that any internal
+/// fields are being updated.
+///
+/// After creating implementing this on a type, use `PaginatedStream::from` to
+/// get an iterable stream from the delegate.
 #[async_trait]
 pub trait PaginationDelegate {
+    /// This is the type of the item that calls to `poll_next` are expected to
+    /// yield.
     type Item;
+    /// This is the type error that will occur when a future from
+    /// `PaginationDelegate::next_page` resolves to an error.
     type Error;
 
     /// Performs an asynchronous request for the next page and returns either
-    /// a vector of the result items or an error.
+    /// a vector of the result items or an error. Implementing this may require
+    /// the [`macro@async_trait`] macro from the [mod@async_trait] crate.
     async fn next_page(&mut self) -> Result<Vec<Self::Item>, Self::Error>;
 
     /// Gets the current offset, which will be the index at the end of the
     /// current/previous page. The value returned from this will be changed by
     /// [`PaginatedStream`] immediately following a successful call to
-    /// [`next_page()`], increasing by the number of items returned.
+    /// [`Self::next_page`], increasing by the number of items returned.
     fn offset(&self) -> usize;
 
     /// Sets the offset for the next page. The offset is required to be the
@@ -27,29 +49,63 @@ pub trait PaginationDelegate {
     /// Gets the total count of items that are currently expected from the API.
     /// This may change if the API returns a different number of results on
     /// subsequent pages, and may be less than what the API claims in its
-    /// response data if the API has a maximum limit.
+    /// response data if the API has a maximum limit and stops providing results
+    /// after a certain amount.
     fn total_items(&self) -> Option<usize>;
 }
 
+/// This enumerable holds the current state of the paginated stream and also
+/// implements the [`Stream`] trait itself. It is highly recommended to read the
+/// source code of the `Stream` implementation for more documentation about how
+/// the state is changed as the stream is polled, there is a liberal amount of
+/// commentary.
 pub enum PaginatedStream<'f, D: PaginationDelegate> {
+    /// This is the entry-point, or rather where the state machine begins.
+    /// This is also used to indicate that the state machine is ready for the
+    /// next page from the API. This will be set when the state was previously
+    /// `Ready` but had no more items to yield.
     Request {
+        /// The stored delegate to pass between states.
         delegate: D,
     },
+    /// At some point in the past, the delegate was requested to fetch the next
+    /// page and has returned a future. This will be polled whenever `poll_next`
+    /// is called, eventually resulting in the state changing to `Ready` if
+    /// successful, or `Closed` if an error was yielded.
     Pending {
+        /// The future will be the result returned from the
+        /// [`PaginationDelegate::next_page`], and will either resolve to an
+        /// `Err` or a tuple of the delegate and the items that the API
+        /// responded with.
         #[allow(clippy::type_complexity)]
         future: Pin<Box<dyn Future<Output = Result<(D, Vec<D::Item>), D::Error>> + 'f>>,
     },
+    /// The next page is ready and its current items have been taken and are
+    /// currently being yielded to whatever is polling the stream. This state
+    /// will remain the same until it runs out of items, and on the very next
+    /// poll, the state will change back to `Request` if there is another page,
+    /// or `Closed` if the expected number of results has already been yielded.
     Ready {
+        /// The stored delegate to pass between states.
         delegate: D,
+        /// The internal buffer of items that will be yielded on calls to
+        /// `poll_next` when this state is active.
         items: VecDeque<D::Item>,
     },
+    /// Either an error has occurred or the API has been exhausted of the items
+    /// that it is willing to provide. Polling the stream when this is the state
+    /// will always yield `Poll::Ready(None)`, and will never change once this
+    /// has been set.
     Closed,
+    /// This state is used internally when the result of `poll_next` is being
+    /// resolved. If you are matching variants directly, always resolve this
+    /// to [`unimplemented!()`].
     Indeterminate,
 }
 
 impl<'f, D> From<D> for PaginatedStream<'f, D>
-    where
-        D: PaginationDelegate,
+where
+    D: PaginationDelegate,
 {
     fn from(other: D) -> PaginatedStream<'f, D> {
         PaginatedStream::Request { delegate: other }
@@ -57,9 +113,9 @@ impl<'f, D> From<D> for PaginatedStream<'f, D>
 }
 
 impl<'f, D> Stream for PaginatedStream<'f, D>
-    where
-        D: PaginationDelegate + Unpin + 'f,
-        D::Item: Unpin,
+where
+    D: PaginationDelegate + Unpin + 'f,
+    D::Item: Unpin,
 {
     // If the state is `Pending` and the future resolves to an `Err`, that error is
     // forwarded only once and the state set to `Closed`. If there is at least one
@@ -80,7 +136,7 @@ impl<'f, D> Stream for PaginatedStream<'f, D>
             // `PaginationDelegate` that will be used to update the offset and make new requests.
             Request { mut delegate } => {
                 self.set(Pending {
-                    /// Construct a new future and pin it on the heap.
+                    // Construct a new future and pin it on the heap.
                     future: Box::pin(async {
                         // Request the next page from the delegate and await the result.
                         let result = delegate.next_page().await;
@@ -90,8 +146,8 @@ impl<'f, D> Stream for PaginatedStream<'f, D>
                     }),
                 });
 
-                // Return the distilled verson of the new state to the callee, indicating that a
-                // new request has been made and we are waiting or new data.
+                // Return the distilled version of the new state to the callee, indicating that
+                // a new request has been made, and we are waiting for new data.
                 Poll::Pending
             }
             // At some point in the past this stream was polled and asked the delegate to make a new

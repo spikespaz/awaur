@@ -1,6 +1,10 @@
+#![warn(missing_docs)]
+
 #[cfg(feature = "paginator")]
 pub mod paginator;
 
+/// Import this module to get all the types, traits, and constants defined by
+/// the features you have enabled.
 pub mod prelude {
     #[cfg(feature = "paginator")]
     #[doc(inline)]
