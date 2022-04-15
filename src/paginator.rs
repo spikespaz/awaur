@@ -173,6 +173,9 @@ where
                     // Set the new state to `Ready` with the delegate and the items.
                     self.set(Ready { delegate, items });
 
+                    // Note that this could have been `self.poll_next(ctx)` rather than popping the
+                    // item in this branch, but doing everything here is better than moving the
+                    // fields twice and doing unnecessary checks.
                     Poll::Ready(Some(Ok(popped)))
                 }
                 // The future from the last request returned with an error.
@@ -203,7 +206,13 @@ where
                 mut items,
             } => match items.pop_front() {
                 // There is at least one item in the buffer, so yield it.
-                Some(item) => Poll::Ready(Some(Ok(item))),
+                Some(item) => {
+                    // Set the state back to `Ready`, even if the items buffer is empty. This allows
+                    // the next page request to be made lazily, only after the current page is
+                    // exhausted, and then the stream is polled again.
+                    self.set(Ready { delegate, items });
+                    Poll::Ready(Some(Ok(item)))
+                }
                 // There was no item to yield.
                 None => {
                     // Check if we have met or exceeded the number of items expected to be yielded.
