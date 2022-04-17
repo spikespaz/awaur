@@ -1,6 +1,6 @@
 [package]
 name = "awaur"
-version = "0.1.2"
+version = "0.1.3"
 authors = [ "Jacob Birkett <jacob@birkett.dev>" ]
 edition = "2021"
 description = "AWAUR: Asynchronous Web API Utilities for Rust"

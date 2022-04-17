@@ -1,6 +1,8 @@
-use pagination_example::github::{Client, IssueSearchParams, GITHUB_API_BASE};
+use pagination_example::github::{Client, Error, IssueSearchParams, GITHUB_API_BASE};
 use smol::stream::StreamExt;
 
+// GitHub may not serve the best for an example like this, as we hit the
+// secondary rate limit. <https://docs.github.com/en/rest/overview/resources-in-the-rest-api#secondary-rate-limits>
 fn main() {
     // search_issues();
     search_issues_iter();
@@ -29,14 +31,27 @@ fn search_issues_iter() {
         let mut count = 0_usize;
 
         while let Some(result) = stream.next().await {
-            count += 1;
-
             match &result {
-                Ok(item) => println!("{}: {}", item.id, item.html_url),
-                Err(error) => eprintln!("Error encountered after {} items!\n{:#?}", count, error),
+                Ok(item) => println!("Issue {}: {}", item.id, item.html_url),
+                Err(error) => {
+                    eprintln!("Error encountered after {} items!", count);
+
+                    match error {
+                        Error::Request(error) => eprintln!("{:#?}", error),
+                        Error::Deserialize { error, url, bytes } => {
+                            eprintln!(
+                                "URL\n{}\nError:\n{}\nData:\n{}",
+                                url,
+                                error,
+                                std::str::from_utf8(bytes.as_slice()).unwrap()
+                            )
+                        }
+                    }
+                }
             }
 
             assert!(result.is_ok());
+            count += 1;
         }
     });
 }

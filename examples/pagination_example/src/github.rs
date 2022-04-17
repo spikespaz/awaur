@@ -1,12 +1,35 @@
 use async_trait::async_trait;
 use awaur::paginator::{PaginatedStream, PaginationDelegate};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 pub const GITHUB_API_BASE: &str = "https://api.github.com/";
 
 pub struct Client {
     inner: surf::Client,
 }
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("failed to make a request: {0:?}")]
+    Request(surf::Error),
+    #[error("failed to deserialize response data from '{url}': {error:?}")]
+    Deserialize {
+        error: serde_json::Error,
+        url: surf::Url,
+        bytes: Vec<u8>,
+    },
+}
+
+// It would seem that the `http-types` crate is very silly and doesn't implement
+// `Error` for their error types. Who needs standards anyway?
+impl From<surf::Error> for Error {
+    fn from(other: surf::Error) -> Self {
+        Self::Request(other)
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl Client {
     pub fn new<U>(base: U, token: Option<String>) -> surf::Result<Self>
@@ -27,16 +50,15 @@ impl Client {
         })
     }
 
-    pub async fn search_issues(
-        &self,
-        params: &IssueSearchParams,
-    ) -> surf::Result<IssueSearchResponse> {
+    pub async fn search_issues(&self, params: &IssueSearchParams) -> Result<IssueSearchResponse> {
         let mut request = self.inner.get("search/issues");
         request = request.query(params)?;
         let request = request.build();
+        let url = request.url().to_owned();
         let mut response = self.inner.send(request).await?;
         let bytes = response.body_bytes().await?;
-        let value = serde_json::from_slice(bytes.as_slice())?;
+        let value = serde_json::from_slice(bytes.as_slice())
+            .map_err(|error| Error::Deserialize { error, url, bytes })?;
 
         Ok(value)
     }
@@ -109,10 +131,10 @@ impl<'c> IssueSearchDelegate<'c> {
 #[async_trait]
 impl PaginationDelegate for IssueSearchDelegate<'_> {
     type Item = IssueSearchItem;
-    type Error = surf::Error;
+    type Error = Error;
 
-    async fn next_page(&mut self) -> Result<Vec<Self::Item>, Self::Error> {
-        // Make a new search with the chient that has been borrowed.
+    async fn next_page(&mut self) -> Result<Vec<Self::Item>> {
+        // Make a new search with the client that has been borrowed.
         let value = self.client.search_issues(&self.params).await?;
 
         // Update the total count with the new API results. Whenever `Self::total_items`
