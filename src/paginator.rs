@@ -146,6 +146,9 @@ where
                     }),
                 });
 
+                // Reawaken the context so that the executor doesn't ignore the future.
+                ctx.waker().wake_by_ref();
+
                 // Return the distilled version of the new state to the callee, indicating that
                 // a new request has been made, and we are waiting for new data.
                 Poll::Pending
