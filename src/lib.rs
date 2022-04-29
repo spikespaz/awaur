@@ -3,6 +3,7 @@
 
 #[cfg(feature = "paginator")]
 pub mod paginator;
+pub mod wrapper;
 
 /// Import this module to get all the types, traits, and constants defined by
 /// the features you have enabled.
@@ -10,6 +11,8 @@ pub mod prelude {
     #[cfg(feature = "paginator")]
     #[doc(inline)]
     pub use super::paginator::*;
+    #[doc(inline)]
+    pub use super::wrapper::*;
 }
 
 #[cfg(test)]
