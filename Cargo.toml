@@ -15,7 +15,60 @@ categories = [ "rust-patterns", "web-programming", "asynchronous", "concurrency"
 # Dependencies for feature "paginator"
 futures-core = { version = "0.3", optional = true }
 async-trait = { version = "0.1", optional = true }
+isahc = { version = "1.7", optional = true, default-features = false }
+reqwest = { version = "0.11", optional = true, default-features = false }
+surf = { version = "2.3", optional = true, default-features = false }
+attohttpc = { version = "0.19", optional = true, default-features = false }
+url = { version = "2.2", optional = true }
 
 [features]
-default = [ "paginator" ]
+# Isahc is the default wrapper backend, with its default features except `text-decoding`
+default = [ "paginator", "wrapper-backend-isahc", "isahc-http2", "isahc-static-curl" ]
+
+# Dependencies required for the paginator
 paginator = [ "dep:futures-core", "dep:async-trait" ]
+
+# Features for changing the wrapper HTTP backend
+wrapper-backend-isahc = [ "dep:isahc", "dep:url" ]
+wrapper-backend-reqwest = [ "dep:reqwest", "dep:url" ]
+wrapper-backend-surf = [ "dep:surf", "dep:url" ]
+wrapper-backend-aiohttpc = [ "dep:attohttpc", "dep:url" ]
+
+# Surf has no way to enable/disable JSON support
+wrapper-json = [ "isahc-json", "reqwest-json", "attohttpc-json" ]
+# Reqwest has no way of disabling non-UTF8 encodings
+wrapper-non-utf8 = [ "isahc-text-decoding", "surf-encoding", "attohttpc-charsets" ]
+
+# Features specific to Isahc
+# <https://docs.rs/isahc/latest/isahc/#feature-flags>
+isahc-http2 = [ "isahc?/http2" ]
+isahc-json = [ "isahc?/json" ]
+isahc-static-curl = [ "isahc?/static-curl" ]
+isahc-text-decoding = [ "isahc?/text-decoding" ]
+
+# Features specific to Reqwest
+# <https://docs.rs/reqwest/latest/reqwest/#optional-features>
+reqwest-default-tls = [ "reqwest?/default-tls" ]
+reqwest-native-tls = [ "reqwest?/native-tls" ]
+reqwest-native-tls-vendored = [ "reqwest?/native-tls-vendored" ]
+reqwest-native-tls-alpn = [ "reqwest?/native-tls-alpn" ]
+reqwest-rustls-tls = [ "reqwest?/rustls-tls" ]
+reqwest-rustls-tls-native-roots = [ "reqwest?/rustls-tls-native-roots" ]
+reqwest-trust-dns = [ "reqwest?/trust-dns" ]
+reqwest-json = [ "reqwest?/json" ]
+
+# Features specific to Surf
+# <https://docs.rs/surf/latest/surf/#features>
+surf-curl-client = [ "surf?/curl-client" ]
+surf-h1-client = [ "surf?/h1-client" ]
+surf-h1-client-rustls = [ "surf?/h1-client-rustls" ]
+surf-hyper-client = [ "surf?/hyper-client" ]
+surf-encoding = [ "surf?/encoding" ]
+
+# Features specific to Attohttpc
+# <https://docs.rs/attohttpc/latest/attohttpc/#features>
+attohttpc-charsets = [ "attohttpc?/charsets" ]
+attohttpc-json = [ "attohttpc?/json" ]
+attohttpc-tls = [ "attohttpc?/tls" ]
+attohttpc-rustls = [ "attohttpc?/rustls" ]
+attohttpc-tls-rustls = [ "attohttpc?/tls-rustls" ]
