@@ -3,6 +3,12 @@
 
 #[cfg(feature = "paginator")]
 pub mod paginator;
+#[cfg(any(
+    feature = "wrapper-backend-isahc",
+    feature = "wrapper-backend-reqwest",
+    feature = "wrapper-backend-surf",
+    feature = "wrapper-backend-aiohttpc"
+))]
 pub mod wrapper;
 
 /// Import this module to get all the types, traits, and constants defined by
@@ -13,13 +19,4 @@ pub mod prelude {
     pub use super::paginator::*;
     #[doc(inline)]
     pub use super::wrapper::*;
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
 }
