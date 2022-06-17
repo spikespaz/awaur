@@ -3,6 +3,8 @@
 
 #[cfg(feature = "paginator")]
 pub mod paginator;
+#[cfg(feature = "serde-with")]
+pub mod serde_with;
 
 /// Import this module to get all the types, traits, and constants defined by
 /// the features you have enabled.
