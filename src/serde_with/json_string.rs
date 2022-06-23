@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::ser::SerializeAsWrap;
 use serde_with::{DeserializeAs, SerializeAs};
 
-pub struct JsonString<T>(T);
+pub struct JsonString<T>(pub T);
 
 impl<T> Serialize for JsonString<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

@@ -5,7 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{DeserializeAs, DeserializeFromStr, SerializeAs, SerializeDisplay};
 
 #[derive(SerializeDisplay, DeserializeFromStr)]
-pub struct Base62<T>(T);
+pub struct Base62<T>(pub T);
 
 impl<T> fmt::Display for Base62<T>
 where
