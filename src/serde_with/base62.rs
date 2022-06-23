@@ -1,19 +1,17 @@
-use std::fmt::{Display as FmtDisplay, Formatter, Result as FmtResult};
+use std::fmt;
 use std::str::FromStr;
 
-use serde::de::{DeserializeOwned, Error as DeserializeError, Visitor};
-use serde::ser::Error as SerializeError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{DeserializeAs, DeserializeFromStr, SerializeAs, SerializeDisplay};
 
 #[derive(SerializeDisplay, DeserializeFromStr)]
 pub struct Base62<T>(T);
 
-impl<T> FmtDisplay for Base62<T>
+impl<T> fmt::Display for Base62<T>
 where
     T: Clone + Into<u128>,
 {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&base62::encode(self.0.clone()))
     }
 }
