@@ -1,39 +1,39 @@
 use std::marker::PhantomData;
 
-use serde::de::{DeserializeOwned, Error as DeserializeError, Visitor};
-use serde::ser::Error as SerializeError;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_with::ser::SerializeAsWrap;
+use serde::de::DeserializeOwned;
+use serde::{Deserializer, Serialize, Serializer};
 use serde_with::{DeserializeAs, SerializeAs};
 
-pub struct JsonString<T>(pub T);
+pub mod with {
+    use std::fmt;
+    use std::marker::PhantomData;
 
-impl<T> Serialize for JsonString<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    use serde::de::{DeserializeOwned, Deserializer, Error as DeserializeError, Visitor};
+    use serde::ser::Error as SerializeError;
+    use serde::{Serialize, Serializer};
+
+    pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
+        T: Serialize,
     {
-        serializer.serialize_str(&serde_json::to_string(self).map_err(SerializeError::custom)?)
+        serializer.serialize_str(&serde_json::to_string(value).map_err(SerializeError::custom)?)
     }
-}
 
-impl<'de, T> Deserialize<'de> for JsonString<T>
-where
-    T: DeserializeOwned,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
     where
         D: Deserializer<'de>,
+        T: DeserializeOwned,
     {
-        struct JsonStringVisitor<T>(PhantomData<T>);
+        struct _Visitor<T>(PhantomData<T>);
 
-        impl<'de, T> Visitor<'de> for JsonStringVisitor<T>
+        impl<'de, T> Visitor<'de> for _Visitor<T>
         where
             T: DeserializeOwned,
         {
-            type Value = JsonString<T>;
+            type Value = T;
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a value that can be serialized as a JSON string")
             }
 
@@ -41,25 +41,25 @@ where
             where
                 E: DeserializeError,
             {
-                Ok(JsonString(
-                    serde_json::from_str(value).map_err(DeserializeError::custom)?,
-                ))
+                serde_json::from_str(value).map_err(DeserializeError::custom)
             }
         }
 
-        deserializer.deserialize_str(JsonStringVisitor(PhantomData))
+        deserializer.deserialize_str(_Visitor(PhantomData))
     }
 }
 
-impl<T, U> SerializeAs<T> for JsonString<U>
+pub struct JsonString<T>(PhantomData<T>);
+
+impl<T> SerializeAs<T> for JsonString<T>
 where
-    U: SerializeAs<T>,
+    T: Serialize,
 {
     fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        SerializeAsWrap::<T, U>::new(source).serialize(serializer)
+        with::serialize(source, serializer)
     }
 }
 
@@ -71,6 +71,71 @@ where
     where
         D: Deserializer<'de>,
     {
-        JsonString::deserialize(deserializer).map(|this| this.0)
+        with::deserialize(deserializer)
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use fake::faker::name::en::{FirstName, LastName};
+    use fake::{Dummy, Fake};
+    use serde::de::DeserializeOwned;
+    use serde::{Deserialize, Serialize};
+    use serde_with::serde_as;
+    use time::OffsetDateTime;
+
+    use super::JsonString;
+
+    #[serde_as]
+    #[derive(Serialize, Deserialize)]
+    struct ContainerType<T>
+    where
+        T: Serialize + DeserializeOwned,
+    {
+        #[serde_as(as = "Vec<JsonString<T>>")]
+        pub values: Vec<T>,
+    }
+
+    #[serde_as]
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    struct Human {
+        first: String,
+        last: String,
+        #[serde(with = "time::serde::rfc3339")]
+        birth: OffsetDateTime,
+    }
+
+    impl<F> Dummy<F> for Human {
+        fn dummy_with_rng<R: rand::Rng + ?Sized>(_: &F, rng: &mut R) -> Self {
+            Human {
+                first: FirstName().fake_with_rng(rng),
+                last: LastName().fake_with_rng(rng),
+                birth: OffsetDateTime::from_unix_timestamp(rng.gen_range(0..253402300799)).unwrap(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        let fakes = fake::vec![Human; 50];
+        // let expect = fakes.iter().map(|v| serde_json::to_string(v).unwrap());
+        let container = ContainerType {
+            values: fakes.clone(),
+        };
+        let serialized = serde_json::to_string(&container).unwrap();
+        let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
+        let parsed = parsed
+            .as_object()
+            .unwrap()
+            .get("values")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| serde_json::from_str::<Human>(v.as_str().unwrap()).unwrap());
+
+        for (expect, actual) in std::iter::zip(fakes, parsed) {
+            assert_eq!(&expect, &actual);
+        }
     }
 }

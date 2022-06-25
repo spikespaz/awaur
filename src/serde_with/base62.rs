@@ -100,7 +100,7 @@ pub mod tests {
         // Create a thousand large numbers, and add a zero for pedanticism
         let range = ((u128::MAX - 1000)..u128::MAX).chain([0]);
         // Encode those without the wrapper
-        let values = range.clone().map(base62::encode);
+        let expect = range.clone().map(base62::encode);
         // Create an instance of the wrapper type with the same numbers
         let container = TestType {
             values: range.collect(),
@@ -122,7 +122,7 @@ pub mod tests {
 
         // Iterate over the manually encoded numbers and the ones encoded by the
         // wrapper's implementation of `SerializeAs` and `Serialize`
-        for (expect, actual) in std::iter::zip(values, parsed) {
+        for (expect, actual) in std::iter::zip(expect, parsed) {
             assert_eq!(&expect, &actual);
         }
     }
