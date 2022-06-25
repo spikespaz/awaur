@@ -1,34 +1,56 @@
-use std::fmt;
-use std::str::FromStr;
+use std::marker::PhantomData;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_with::{DeserializeAs, DeserializeFromStr, SerializeAs, SerializeDisplay};
+use serde::{Deserializer, Serializer};
+use serde_with::{DeserializeAs, SerializeAs};
 
-#[derive(SerializeDisplay, DeserializeFromStr)]
-pub struct Base62<T>(pub T);
+pub mod with {
+    use std::fmt;
+    use std::marker::PhantomData;
 
-impl<T> fmt::Display for Base62<T>
-where
-    T: Clone + Into<u128>,
-{
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&base62::encode(self.0.clone()))
+    use serde::de::{Error as DeserializeError, Unexpected, Visitor};
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Clone + Into<u128>,
+    {
+        serializer.serialize_str(&base62::encode(value.clone()))
     }
-}
 
-impl<T> FromStr for Base62<T>
-where
-    u128: TryInto<T>,
-{
-    type Err = base62::DecodeError;
+    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+    where
+        D: Deserializer<'de>,
+        u128: TryInto<T>,
+    {
+        struct _Visitor<T>(PhantomData<T>);
 
-    fn from_str(other: &str) -> Result<Self, Self::Err> {
-        match base62::decode(other)?.try_into() {
-            Ok(n) => Ok(Base62(n)),
-            Err(_) => Err(Self::Err::ArithmeticOverflow),
+        impl<'de, T> Visitor<'de> for _Visitor<T>
+        where
+            u128: TryInto<T>,
+        {
+            type Value = T;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a value that can be converted from a base-62 encoded u128")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: DeserializeError,
+            {
+                base62::decode(value)
+                    .map_err(DeserializeError::custom)?
+                    .try_into()
+                    .map_err(|_| DeserializeError::invalid_value(Unexpected::Str(value), &self))
+            }
         }
+
+        deserializer.deserialize_str(_Visitor(PhantomData))
     }
 }
+
+pub struct Base62<T>(PhantomData<T>);
 
 impl<T> SerializeAs<T> for Base62<T>
 where
@@ -38,7 +60,7 @@ where
     where
         S: Serializer,
     {
-        Base62(source.clone()).serialize(serializer)
+        with::serialize(source, serializer)
     }
 }
 
@@ -50,7 +72,7 @@ where
     where
         D: Deserializer<'de>,
     {
-        Base62::deserialize(deserializer).map(|this| this.0)
+        with::deserialize(deserializer)
     }
 }
 
@@ -59,13 +81,14 @@ pub mod tests {
     use serde::{Deserialize, Serialize};
     use serde_with::serde_as;
 
-    use crate::serde_with::ext::Base62;
+    use super::Base62;
 
     #[serde_as]
     #[derive(Serialize, Deserialize)]
     struct TestType<T>
     where
-        T: Clone + TryFrom<u128> + Into<u128>,
+        T: Clone + Into<u128>,
+        u128: TryInto<T>,
     {
         #[serde_as(as = "Vec<Base62<T>>")]
         pub values: Vec<T>,
