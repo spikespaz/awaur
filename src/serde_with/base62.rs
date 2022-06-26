@@ -1,4 +1,21 @@
+//! De/serialize `T` as a base-62-encoded string, where `T: Into<u128>, u128:
+//! TryFrom<T>`.
+//!
+//! ```rust
+//! #[serde_as(as = "awaur::serde_with::Base62<...>")]
+//! ```
+//! ```rust
+//! #[serde(serialize_with = "awaur::serde_with::base62::serialize")]
+//! ```
+//! ```rust
+//! #[serde(deserialize_with = "awaur::serde_with::base62::deserialize")]
+//! ```
+//! ```rust
+//! #[serde(with = "awaur::serde_with::base62")]
+//! ```
+
 pub use with::*;
+#[doc(hidden)]
 #[cfg(feature = "serde-as-wrapper")]
 pub use wrapper::*;
 
@@ -9,6 +26,9 @@ mod with {
     use serde::de::{Error as DeserializeError, Unexpected, Visitor};
     use serde::{Deserializer, Serializer};
 
+    /// ```rust
+    /// #[serde(serialize_with = "awaur::serde_with::base62::serialize")]
+    /// ```
     pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -17,6 +37,9 @@ mod with {
         serializer.serialize_str(&base62::encode(value.clone()))
     }
 
+    /// ```rust
+    /// #[serde(deserialize_with = "awaur::serde_with::base62::deserialize")]
+    /// ```
     pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
     where
         D: Deserializer<'de>,
@@ -56,6 +79,8 @@ mod wrapper {
     use serde::{Deserializer, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
 
+    /// Implements [`SerializeAs`][serde_with::SerializeAs] and
+    /// [`DeserializeAs`][serde_with::DeserializeAs].
     pub struct Base62<T>(PhantomData<T>);
 
     impl<T> SerializeAs<T> for Base62<T>

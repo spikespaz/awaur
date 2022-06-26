@@ -1,4 +1,21 @@
+//! De/serialize `T` as a JSON-encoded string, where `T: Serialize +
+//! Deserialize`.
+//!
+//! ```rust
+//! #[serde_as(as = "awaur::serde_with::JsonString<...>")]
+//! ```
+//! ```rust
+//! #[serde(serialize_with = "awaur::serde_with::json_string::serialize")]
+//! ```
+//! ```rust
+//! #[serde(deserialize_with = "awaur::serde_with::json_string::deserialize")]
+//! ```
+//! ```rust
+//! #[serde(with = "awaur::serde_with::json_string")]
+//! ```
+
 pub use with::*;
+#[doc(hidden)]
 #[cfg(feature = "serde-as-wrapper")]
 pub use wrapper::*;
 
@@ -10,6 +27,9 @@ mod with {
     use serde::ser::Error as SerializeError;
     use serde::{Serialize, Serializer};
 
+    /// ```rust
+    /// #[serde(serialize_with = "awaur::serde_with::json_string::serialize")]
+    /// ```
     pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -18,6 +38,9 @@ mod with {
         serializer.serialize_str(&serde_json::to_string(value).map_err(SerializeError::custom)?)
     }
 
+    /// ```rust
+    /// #[serde(deserialize_with = "awaur::serde_with::json_string::deserialize")]
+    /// ```
     pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
     where
         D: Deserializer<'de>,
@@ -55,6 +78,8 @@ mod wrapper {
     use serde::{Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
 
+    /// Implements [`SerializeAs`][serde_with::SerializeAs] and
+    /// [`DeserializeAs`][serde_with::DeserializeAs].
     pub struct JsonString<T>(PhantomData<T>);
 
     impl<T> SerializeAs<T> for JsonString<T>
