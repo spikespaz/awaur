@@ -127,97 +127,95 @@ mod wrapper {
             super::with::deserialize(deserializer)
         }
     }
+}
 
-    #[cfg(test)]
-    pub mod tests {
-        use fake::faker::name::en::{FirstName, LastName};
-        use fake::{Dummy, Fake};
-        use serde::de::DeserializeOwned;
-        use serde::{Deserialize, Serialize};
-        use serde_with::serde_as;
-        use time::OffsetDateTime;
+#[cfg(test)]
+pub mod tests {
+    use fake::faker::name::en::{FirstName, LastName};
+    use fake::{Dummy, Fake};
+    use serde::{Deserialize, Serialize};
+    use serde_with::serde_as;
+    use time::OffsetDateTime;
 
-        use super::JsonString;
-        use crate::serde_with::Base62;
+    use super::JsonString;
+    use crate::serde_with::Base62;
 
-        #[serde_as]
-        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-        struct Human {
-            first: String,
-            last: String,
-            #[serde(with = "time::serde::rfc3339")]
-            birth: OffsetDateTime,
-        }
+    #[serde_as]
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    struct Human {
+        first: String,
+        last: String,
+        #[serde(with = "time::serde::rfc3339")]
+        birth: OffsetDateTime,
+    }
 
-        impl<F> Dummy<F> for Human {
-            fn dummy_with_rng<R: rand::Rng + ?Sized>(_: &F, rng: &mut R) -> Self {
-                Human {
-                    first: FirstName().fake_with_rng(rng),
-                    last: LastName().fake_with_rng(rng),
-                    birth: OffsetDateTime::from_unix_timestamp(rng.gen_range(0..253402300799))
-                        .unwrap(),
-                }
+    impl<F> Dummy<F> for Human {
+        fn dummy_with_rng<R: rand::Rng + ?Sized>(_: &F, rng: &mut R) -> Self {
+            Human {
+                first: FirstName().fake_with_rng(rng),
+                last: LastName().fake_with_rng(rng),
+                birth: OffsetDateTime::from_unix_timestamp(rng.gen_range(0..253402300799)).unwrap(),
             }
         }
+    }
 
-        #[test]
-        fn test_roundtrip() {
-            // let expect = fakes.iter().map(|v| serde_json::to_string(v).unwrap());
-            let container = crate::macros::new_struct! {
-                #[serde_as]
-                #[derive(Serialize, Deserialize)]
-                TestContainer {
-                    #[serde_as(as = "Vec<JsonString<Human>>")]
-                    pub values: Vec<Human> = fake::vec![Human; 50],
-                }
-            };
-            let serialized = serde_json::to_string(&container).unwrap();
-            let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
-            let parsed = parsed
-                .as_object()
-                .unwrap()
-                .get("values")
-                .unwrap()
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|v| serde_json::from_str::<Human>(v.as_str().unwrap()).unwrap());
-
-            for (expect, actual) in std::iter::zip(container.values, parsed) {
-                assert_eq!(&expect, &actual);
+    #[test]
+    fn test_roundtrip() {
+        // let expect = fakes.iter().map(|v| serde_json::to_string(v).unwrap());
+        let container = crate::macros::new_struct! {
+            #[serde_as]
+            #[derive(Serialize, Deserialize)]
+            TestContainer {
+                #[serde_as(as = "Vec<JsonString<Human>>")]
+                pub values: Vec<Human> = fake::vec![Human; 50],
             }
-        }
-
-        #[test]
-        fn test_wrapping() {
-            let container = crate::macros::new_struct! {
-                #[serde_as]
-                #[derive(Serialize, Deserialize)]
-                TestContainer {
-                    #[serde_as(as = "JsonString<Vec<Base62<u64>>>")]
-                    pub values: Vec<u64> = ((u64::MAX - 1000)..u64::MAX).chain([0]).collect(),
-                }
-            };
-            let serialized = serde_json::to_string(&container).unwrap();
-            let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
-            let parsed = serde_json::from_str::<serde_json::Value>(
-                parsed
-                    .as_object()
-                    .expect("expected an object map")
-                    .get("values")
-                    .expect("expected an object field")
-                    .as_str()
-                    .expect("expected a string"),
-            )
-            .expect("expected to parse string as json")
+        };
+        let serialized = serde_json::to_string(&container).unwrap();
+        let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
+        let parsed = parsed
+            .as_object()
+            .unwrap()
+            .get("values")
+            .unwrap()
             .as_array()
-            .expect("expected a vector of strings")
+            .unwrap()
             .iter()
-            .map(|v| base62::decode(v.as_str().unwrap()).unwrap() as u64);
+            .map(|v| serde_json::from_str::<Human>(v.as_str().unwrap()).unwrap());
 
-            for (expect, actual) in std::iter::zip(container.values, parsed) {
-                assert_eq!(&expect, &actual);
+        for (expect, actual) in std::iter::zip(container.values, parsed) {
+            assert_eq!(&expect, &actual);
+        }
+    }
+
+    #[test]
+    fn test_wrapping() {
+        let container = crate::macros::new_struct! {
+            #[serde_as]
+            #[derive(Serialize, Deserialize)]
+            TestContainer {
+                #[serde_as(as = "JsonString<Vec<Base62<u64>>>")]
+                pub values: Vec<u64> = ((u64::MAX - 1000)..u64::MAX).chain([0]).collect(),
             }
+        };
+        let serialized = serde_json::to_string(&container).unwrap();
+        let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
+        let parsed = serde_json::from_str::<serde_json::Value>(
+            parsed
+                .as_object()
+                .expect("expected an object map")
+                .get("values")
+                .expect("expected an object field")
+                .as_str()
+                .expect("expected a string"),
+        )
+        .expect("expected to parse string as json")
+        .as_array()
+        .expect("expected a vector of strings")
+        .iter()
+        .map(|v| base62::decode(v.as_str().unwrap()).unwrap() as u64);
+
+        for (expect, actual) in std::iter::zip(container.values, parsed) {
+            assert_eq!(&expect, &actual);
         }
     }
 }

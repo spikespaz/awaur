@@ -129,56 +129,56 @@ mod wrapper {
             super::with::deserialize(deserializer)
         }
     }
+}
 
-    #[cfg(test)]
-    pub mod tests {
-        use serde::{Deserialize, Serialize};
-        use serde_with::serde_as;
+#[cfg(test)]
+pub mod tests {
+    use serde::{Deserialize, Serialize};
+    use serde_with::serde_as;
 
-        use super::Base62;
+    use super::Base62;
 
-        #[serde_as]
-        #[derive(Serialize, Deserialize)]
-        struct TestType<T>
-        where
-            T: Clone + Into<u128>,
-            u128: TryInto<T>,
-        {
-            #[serde_as(as = "Vec<Base62<T>>")]
-            pub values: Vec<T>,
-        }
+    #[serde_as]
+    #[derive(Serialize, Deserialize)]
+    struct TestType<T>
+    where
+        T: Clone + Into<u128>,
+        u128: TryInto<T>,
+    {
+        #[serde_as(as = "Vec<Base62<T>>")]
+        pub values: Vec<T>,
+    }
 
-        // Test both serializing and deserializing in one go
-        #[test]
-        fn test_roundtrip() {
-            // Create a thousand large numbers, and add a zero for pedanticism
-            let range = ((u128::MAX - 1000)..u128::MAX).chain([0]);
-            // Encode those without the wrapper
-            let expect = range.clone().map(base62::encode);
-            // Create an instance of the wrapper type with the same numbers
-            let container = TestType {
-                values: range.collect(),
-            };
-            // Serialize the value as a JSON string
-            let serialized = serde_json::to_string(&container).unwrap();
-            // Parse the string back into a `Value` type
-            let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
-            // Keep unwrapping to get the vector of encoded strings
-            let parsed = parsed
-                .as_object()
-                .unwrap()
-                .get("values")
-                .unwrap()
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|v| v.as_str().unwrap());
+    // Test both serializing and deserializing in one go
+    #[test]
+    fn test_roundtrip() {
+        // Create a thousand large numbers, and add a zero for pedanticism
+        let range = ((u128::MAX - 1000)..u128::MAX).chain([0]);
+        // Encode those without the wrapper
+        let expect = range.clone().map(base62::encode);
+        // Create an instance of the wrapper type with the same numbers
+        let container = TestType {
+            values: range.collect(),
+        };
+        // Serialize the value as a JSON string
+        let serialized = serde_json::to_string(&container).unwrap();
+        // Parse the string back into a `Value` type
+        let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
+        // Keep unwrapping to get the vector of encoded strings
+        let parsed = parsed
+            .as_object()
+            .unwrap()
+            .get("values")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap());
 
-            // Iterate over the manually encoded numbers and the ones encoded by the
-            // wrapper's implementation of `SerializeAs` and `Serialize`
-            for (expect, actual) in std::iter::zip(expect, parsed) {
-                assert_eq!(&expect, &actual);
-            }
+        // Iterate over the manually encoded numbers and the ones encoded by the
+        // wrapper's implementation of `SerializeAs` and `Serialize`
+        for (expect, actual) in std::iter::zip(expect, parsed) {
+            assert_eq!(&expect, &actual);
         }
     }
 }
