@@ -72,17 +72,39 @@ mod with {
 
 #[cfg(feature = "serde-as-wrapper")]
 mod wrapper {
-    use std::marker::PhantomData;
-
     use serde::de::DeserializeOwned;
-    use serde::{Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
+
+    impl<T> Serialize for JsonString<T>
+    where
+        T: Serialize,
+    {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            super::with::serialize(&self.0, serializer)
+        }
+    }
+
+    impl<'de, T> Deserialize<'de> for JsonString<T>
+    where
+        T: DeserializeOwned,
+    {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            super::with::deserialize(deserializer).map(Self)
+        }
+    }
 
     /// Implements [`SerializeAs`][serde_with::SerializeAs] and
     /// [`DeserializeAs`][serde_with::DeserializeAs].
-    pub struct JsonString<T>(PhantomData<T>);
+    pub struct JsonString<T>(T);
 
-    impl<T> SerializeAs<T> for JsonString<T>
+    impl<T, U> SerializeAs<T> for JsonString<U>
     where
         T: Serialize,
     {
@@ -94,7 +116,7 @@ mod wrapper {
         }
     }
 
-    impl<'de, T, U> DeserializeAs<'de, T> for JsonString<U>
+    impl<'de, T> DeserializeAs<'de, T> for JsonString<T>
     where
         T: DeserializeOwned,
     {
