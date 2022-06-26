@@ -141,7 +141,7 @@ mod wrapper {
 
         #[serde_as]
         #[derive(Serialize, Deserialize)]
-        struct ContainerType<T>
+        struct VecJsonString<T>
         where
             T: Serialize + DeserializeOwned,
         {
@@ -173,8 +173,13 @@ mod wrapper {
         fn test_roundtrip() {
             let fakes = fake::vec![Human; 50];
             // let expect = fakes.iter().map(|v| serde_json::to_string(v).unwrap());
-            let container = ContainerType {
-                values: fakes.clone(),
+            let container = crate::macros::new_struct! {
+                #[serde_as]
+                #[derive(Serialize, Deserialize)]
+                TestRoundtrip {
+                    #[serde_as(as = "Vec<JsonString<Human>>")]
+                    pub values: Vec<Human> = fakes.clone(),
+                }
             };
             let serialized = serde_json::to_string(&container).unwrap();
             let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
