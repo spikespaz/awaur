@@ -13,3 +13,5 @@ format_macro_matchers = true
 imports_granularity = "Module"
 # Enforce line endings, though this should be handled by Git
 newline_style = "Unix"
+# Group stock, external, and current crate imports together with newline
+group_imports = "StdExternalCrate"
