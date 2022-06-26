@@ -1,17 +1,9 @@
-//! This module is a re-export of the contents of the [`serde_with`] crate. The
-//! module [`ext`] contains the adapter types that are defined by AWAUR.
+#[cfg(feature = "serde-with-base62")]
+pub mod base62;
+#[cfg(feature = "serde-with-json-string")]
+pub mod json_string;
 
-mod base62;
-mod json_string;
-
-pub use serde_with::*;
-
-pub mod ext {
-    //! Extension module defined by AWAUR, exporting types that can be used with
-    //! [`serde_with::serde_as`].
-
-    #[cfg(feature = "serde-with-base62")]
-    pub use super::base62::Base62;
-    #[cfg(feature = "serde-with-json-string")]
-    pub use super::json_string::JsonString;
-}
+#[cfg(all(feature = "serde-with-base62", feature = "serde-as-wrapper"))]
+pub use self::base62::Base62;
+#[cfg(all(feature = "serde-with-json-string", feature = "serde-as-wrapper"))]
+pub use self::json_string::JsonString;

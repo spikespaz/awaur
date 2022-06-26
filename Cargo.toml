@@ -18,17 +18,21 @@ async-trait = { version = "0.1", optional = true }
 
 # Dependencies for feature "serde-with"
 serde_with = { version = "1", optional = true }
-base62 = { version = "1", optional = true }
+base62 = { version = "2", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 
 [features]
-default = [ "paginator", "serde-with" ]
-
 # Feature to enable asynchronous paginator
 paginator = [ "dep:futures-core", "dep:async-trait" ]
 
-# Base feature for "serde_with" extensions
-serde-with = [ "dep:serde", "dep:serde_with" ]
-serde-with-base62 = [ "serde-with", "dep:base62" ]
-serde-with-json-string = [ "serde-with", "dep:serde_json" ]
+# Enable `serde_with::serde_as` support
+serde-as-wrapper = [ "dep:serde", "dep:serde_with" ]
+# Features for `[serde(with = "...")]` extensions
+serde-with-base62 = [ "dep:serde", "dep:base62" ]
+serde-with-json-string = [ "dep:serde", "dep:serde_json" ]
+
+[dev-dependencies]
+time = { version = "0.3", features = ["serde-well-known"] }
+fake = { version = "2.5", features=['derive']}
+rand = "0.8"
