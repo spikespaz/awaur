@@ -74,35 +74,38 @@ mod with {
 mod wrapper {
     use std::marker::PhantomData;
 
-    use serde::de::DeserializeOwned;
     use serde::{Deserializer, Serialize, Serializer};
+    use serde_with::de::DeserializeAsWrap;
+    use serde_with::ser::SerializeAsWrap;
     use serde_with::{DeserializeAs, SerializeAs};
 
     /// Implements [`SerializeAs`][serde_with::SerializeAs] and
     /// [`DeserializeAs`][serde_with::DeserializeAs].
     pub struct JsonString<T>(PhantomData<T>);
 
-    impl<T> SerializeAs<T> for JsonString<T>
+    impl<T, U> SerializeAs<T> for JsonString<U>
     where
         T: Serialize,
+        U: SerializeAs<T>,
     {
         fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
-            super::with::serialize(source, serializer)
+            super::with::serialize(&SerializeAsWrap::<T, U>::new(source), serializer)
         }
     }
 
     impl<'de, T, U> DeserializeAs<'de, T> for JsonString<U>
     where
-        T: DeserializeOwned,
+        U: for<'t> DeserializeAs<'t, T>,
     {
         fn deserialize_as<D>(deserializer: D) -> Result<T, D::Error>
         where
             D: Deserializer<'de>,
         {
-            super::with::deserialize(deserializer)
+            let wrapped: DeserializeAsWrap<T, U> = super::with::deserialize(deserializer)?;
+            Ok(wrapped.into_inner())
         }
     }
 }
@@ -139,16 +142,22 @@ pub mod tests {
 
     #[test]
     fn test_roundtrip() {
-        // let expect = fakes.iter().map(|v| serde_json::to_string(v).unwrap());
+        // Make an "anonymous" struct that annotates the field `values` with the adapter
+        // type `JsonString`. The field should first serialize every `Human` as a JSON
+        // object-string, and then make a `Vec<String>` and serialize that into JSON
+        // when the `TestContainer` is serialized.
         let container = crate::macros::new_struct! {
             #[serde_as]
             #[derive(Serialize, Deserialize)]
             TestContainer {
-                #[serde_as(as = "Vec<JsonString<Human>>")]
+                #[serde_as(as = "Vec<JsonString<_>>")]
                 pub values: Vec<Human> = fake::vec![Human; 50],
             }
         };
+        // The nested serializing should be handled by the `serde_as` procedural macro.
         let serialized = serde_json::to_string(&container).unwrap();
+        // Now, deserialize the above example and unwrap the JSON `Value` to make sure
+        // that things adhere to the types that are expected.
         let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
         let parsed = parsed
             .as_object()
@@ -158,8 +167,12 @@ pub mod tests {
             .as_array()
             .unwrap()
             .iter()
+            // This is obviously the most significant part, where the nested JSON is manually parsed
+            // after getting the `Vec<String>`.
             .map(|v| serde_json::from_str::<Human>(v.as_str().unwrap()).unwrap());
 
+        // Ensure that what was parsed manually matches what was deserialized using the
+        // wrapper types defined
         for (expect, actual) in std::iter::zip(container.values, parsed) {
             assert_eq!(&expect, &actual);
         }
@@ -171,11 +184,13 @@ pub mod tests {
             #[serde_as]
             #[derive(Serialize, Deserialize)]
             TestContainer {
-                #[serde_as(as = "JsonString<Vec<Base62<u64>>>")]
+                #[serde_as(as = "JsonString<Vec<Base62>>")]
                 pub values: Vec<u64> = ((u64::MAX - 1000)..u64::MAX).chain([0]).collect(),
             }
         };
         let serialized = serde_json::to_string(&container).unwrap();
+        dbg!(&serialized);
+
         let parsed = serde_json::from_str::<serde_json::Value>(&serialized).unwrap();
         let parsed = serde_json::from_str::<serde_json::Value>(
             parsed
@@ -186,11 +201,16 @@ pub mod tests {
                 .as_str()
                 .expect("expected a string"),
         )
-        .expect("expected to parse string as json")
-        .as_array()
-        .expect("expected a vector of strings")
-        .iter()
-        .map(|v| base62::decode(v.as_str().unwrap()).unwrap() as u64);
+        .expect("expected to parse string as json");
+        let parsed = parsed
+            .as_array()
+            .expect("expected a vector of strings")
+            .iter()
+            .map(|v| {
+                dbg!(v);
+                base62::decode(v.as_str().expect("expected a string as base-62"))
+                    .expect("failed to parse base-62") as u64
+            });
 
         for (expect, actual) in std::iter::zip(container.values, parsed) {
             assert_eq!(&expect, &actual);
