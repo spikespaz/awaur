@@ -74,16 +74,14 @@ mod with {
 
 #[cfg(feature = "serde-as-wrapper")]
 mod wrapper {
-    use std::marker::PhantomData;
-
     use serde::{Deserializer, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
 
     /// Implements [`SerializeAs`][serde_with::SerializeAs] and
     /// [`DeserializeAs`][serde_with::DeserializeAs].
-    pub struct Base62<T>(PhantomData<T>);
+    pub struct Base62;
 
-    impl<T> SerializeAs<T> for Base62<T>
+    impl<T> SerializeAs<T> for Base62
     where
         T: Clone + Into<u128>,
     {
@@ -95,7 +93,7 @@ mod wrapper {
         }
     }
 
-    impl<'de, T> DeserializeAs<'de, T> for Base62<T>
+    impl<'de, T> DeserializeAs<'de, T> for Base62
     where
         u128: TryInto<T>,
     {
@@ -122,7 +120,7 @@ pub mod tests {
         T: Clone + Into<u128>,
         u128: TryInto<T>,
     {
-        #[serde_as(as = "Vec<Base62<T>>")]
+        #[serde_as(as = "Vec<Base62>")]
         pub values: Vec<T>,
     }
 
