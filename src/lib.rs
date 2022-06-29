@@ -1,6 +1,8 @@
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
+#[cfg(feature = "endpoints")]
+pub mod endpoints;
 pub mod macros;
 #[cfg(feature = "paginator")]
 pub mod paginator;
