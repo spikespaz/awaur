@@ -74,7 +74,7 @@ mod with {
 mod wrapper {
     use std::marker::PhantomData;
 
-    use serde::{Deserializer, Serialize, Serializer};
+    use serde::{Deserializer, Serializer};
     use serde_with::de::DeserializeAsWrap;
     use serde_with::ser::SerializeAsWrap;
     use serde_with::{DeserializeAs, SerializeAs};
@@ -85,7 +85,6 @@ mod wrapper {
 
     impl<T, U> SerializeAs<T> for JsonString<U>
     where
-        T: Serialize,
         U: SerializeAs<T>,
     {
         fn serialize_as<S>(source: &T, serializer: S) -> Result<S::Ok, S::Error>
