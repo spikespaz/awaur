@@ -27,10 +27,10 @@ serde_qs = { version = "0.9", optional = true }
 # Dependencies for feature "serde-with"
 serde_with = { version = "1", optional = true }
 base62 = { version = "2", optional = true }
-serde_json = { version = "1", optional = true }
 
 # "endpoints" and "serde-with"
 serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
 
 [features]
 # Feature to enable asynchronous paginator
@@ -47,6 +47,7 @@ endpoints = [
     "dep:http",
     "dep:serde_qs",
     "dep:serde",
+    "dep:serde_json"
 ]
 
 # Enable `serde_with::serde_as` support
