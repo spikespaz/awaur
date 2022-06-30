@@ -1,3 +1,7 @@
+mod response;
+
+pub use response::ApiResponse;
+
 /// This is the most useful error type. This will be returned if the API
 /// response failed to parse either as valid JSON, or according to the
 /// policy for handling unknown fields set by the enabled Cargo features.
@@ -95,8 +99,8 @@ macro_rules! endpoint_impl {
         // the inferred type (outside the macro), and if not, bubble the error
         // to `Error::Deserialize`.
         match result {
-            Ok(value) => Ok(ApiResponse { bytes, value }),
-            Err(error) => Err(DeserializeError { uri, error, bytes }.into()) ,
+            Ok(value) => Ok($crate::endpoints::ApiResponse::__new(bytes, value)),
+            Err(error) => Err($crate::endpoints::DeserializeError { uri, error, bytes }.into()) ,
         }
     }};
     (@uri, $base:ident, $path:literal) => {
