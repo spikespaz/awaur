@@ -27,29 +27,44 @@ serde_qs = { version = "0.9", optional = true }
 # Dependencies for feature "serde-with"
 serde_with = { version = "1", optional = true }
 base62 = { version = "2", optional = true }
-serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+
+# "endpoints" and "serde-with"
+serde = { version = "1", features = ["derive"], optional = true }
 
 [features]
 # Feature to enable asynchronous paginator
-paginator = [ "dep:futures-core", "dep:async-trait" ]
-#
+paginator = [
+    "dep:futures-core",
+    "dep:async-trait"
+]
+# Feature to construct the bodies of functions that make requests to REST endpoints
 endpoints = [
     "dep:thiserror",
     "dep:url",
     "dep:serde_path_to_error",
     "dep:futures-lite",
     "dep:isahc",
-    "dep:serde_qs"
+    "dep:serde_qs",
+    "dep:serde",
 ]
 
 # Enable `serde_with::serde_as` support
-serde-as-wrapper = [ "dep:serde", "dep:serde_with" ]
-# Features for `[serde(with = "...")]` extensions
-serde-with-base62 = [ "dep:serde", "dep:base62" ]
-serde-with-json-string = [ "dep:serde", "dep:serde_json" ]
+serde-as-wrapper = [
+    "dep:serde",
+    "dep:serde_with"
+]
+# Features for `#[serde(with = "...")]` extensions
+serde-with-base62 = [
+    "dep:serde",
+    "dep:base62"
+]
+serde-with-json-string = [
+    "dep:serde",
+    "dep:serde_json"
+]
 
 [dev-dependencies]
 time = { version = "0.3", features = ["serde-well-known"] }
-fake = { version = "2.5", features=['derive']}
+fake = { version = "2.5", features = ["derive"] }
 rand = "0.8"
