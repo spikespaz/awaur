@@ -40,8 +40,8 @@ macro_rules! endpoint {
     };
 }
 
-#[macro_pub]
 #[doc(hidden)]
+#[macro_pub]
 macro_rules! endpoint_impl {
     (
         $client:ident $method:ident,
