@@ -1,4 +1,17 @@
-pub use super::{ApiResponse, DeserializeError, ResponseError};
+#[doc(hidden)]
+pub mod __endpoint_impl_imports {
+    pub use std::option::Option::{None, Some};
+    pub use std::result::Result::{Err, Ok};
+    pub use std::vec::Vec;
+
+    pub use {futures_lite, isahc, serde_json, serde_path_to_error, serde_qs};
+
+    pub use crate::endpoint_impl;
+    pub use crate::endpoints::errors::{DeserializeError, ResponseError};
+    pub use crate::endpoints::response::ApiResponse;
+}
+
+pub use crate::endpoint_impl as endpoint;
 
 /// This macro makes use of several calls to [`Result::unwrap`] or
 /// [`Option::unwrap`]. The values that are unwrapped are expected to be of
@@ -18,32 +31,33 @@ macro_rules! endpoint_impl {
         $(params: $params:expr,)?
         $(body: $body:expr,)?
     ) => {{
-        use ::futures_lite::io::AsyncReadExt;
+        use $crate::endpoints::__endpoint_impl_imports::*;
+        use futures_lite::io::AsyncReadExt;
 
         #[allow(unused_mut)]
-        let mut uri = $crate::endpoint_impl!(@uri, $base, $path $(, [$($var),*])?);
+        let mut uri = endpoint_impl!(@uri, $base, $path $(, [$($var),*])?);
         // Use of unwrap:
         // The type of `$params` is expected to have been validated manually,
         // with a guarantee that it can be serialized as a query string with
         // [`serde_qs::to_string`]. This would only fail if runtime values fail
         // to serialize; this won't happen if the type of `$params` has a
         // well-defined structure.
-        $(uri.set_query(::std::option::Option::Some(&::serde_qs::to_string($params).unwrap()));)?
+        $(uri.set_query(Some(&serde_qs::to_string($params).unwrap()));)?
 
-        let builder = ::isahc::Request::builder()
-            .method($crate::endpoint_impl!(@str $method))
+        let builder = isahc::Request::builder()
+            .method(endpoint_impl!(@str $method))
             .uri(uri.as_str());
         // Use of unwrap:
         // Building the [`isahc::Request`] should realistically never fail,
         // because all of the involved values have already made it past every
         // preceeding point where the runtime had the opprotunity to panic.
-        let request = $crate::endpoint_impl!(@build, builder $(, $body)?).unwrap();
+        let request = endpoint_impl!(@build, builder $(, $body)?).unwrap();
 
         // Sending the request can easily fail, so this would get bubbled to
         // [`crate::Error::Request`].
         let response = $client.send_async(request).await?;
         let status = response.status();
-        let mut bytes = ::std::vec::Vec::new();
+        let mut bytes = Vec::new();
 
         // Use of unwrap:
         // Expect that reading the bytes from a response body is infallible.
@@ -56,18 +70,18 @@ macro_rules! endpoint_impl {
         // the unexpected status, the fully formed URI, and the body bytes in
         // case the server responded with more details.
         if status != 200 {
-            return Err($crate::endpoints::ResponseError { uri, status, bytes }.into());
+            return Err(ResponseError { uri, status, bytes }.into());
         }
 
-        let deserializer = &mut ::serde_json::Deserializer::from_slice(bytes.as_slice());
-        let result = ::serde_path_to_error::deserialize(deserializer);
+        let deserializer = &mut serde_json::Deserializer::from_slice(bytes.as_slice());
+        let result = serde_path_to_error::deserialize(deserializer);
 
         // Determine if the response's body bytes deserialized correctly into
         // the inferred type (outside the macro), and if not, bubble the error
         // to `Error::Deserialize`.
         match result {
-            Ok(value) => Ok($crate::endpoints::ApiResponse::__new(bytes, value)),
-            Err(error) => Err($crate::endpoints::DeserializeError { uri, error, bytes }.into()) ,
+            Ok(value) => Ok(ApiResponse::__new(bytes, value)),
+            Err(error) => Err(DeserializeError { uri, error, bytes }.into()) ,
         }
     }};
     (@uri, $base:ident, $path:literal) => {
@@ -104,6 +118,3 @@ macro_rules! endpoint_impl {
         "POST"
     };
 }
-
-pub use endpoint_impl as endpoint;
-
