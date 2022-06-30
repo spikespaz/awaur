@@ -24,7 +24,7 @@ pub struct ResponseError {
     /// The URI that the initial request was sent to.
     pub uri: url::Url,
     /// The response status code that was received, not 200 OK.
-    pub status: isahc::http::StatusCode,
+    pub status: http::StatusCode,
     /// The body content bytes of the response.
     pub bytes: Vec<u8>,
 }

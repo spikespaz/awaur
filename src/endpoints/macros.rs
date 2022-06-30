@@ -4,7 +4,7 @@ pub mod __endpoint_impl_imports {
     pub use std::result::Result::{Err, Ok};
     pub use std::vec::Vec;
 
-    pub use {futures_lite, isahc, serde_json, serde_path_to_error, serde_qs};
+    pub use {futures_lite, http, serde_json, serde_path_to_error, serde_qs};
 
     pub use crate::endpoint_impl;
     pub use crate::endpoints::errors::{DeserializeError, ResponseError};
@@ -44,7 +44,7 @@ macro_rules! endpoint_impl {
         // well-defined structure.
         $(uri.set_query(Some(&serde_qs::to_string($params).unwrap()));)?
 
-        let builder = isahc::Request::builder()
+        let builder = http::Request::builder()
             .method(endpoint_impl!(@str $method))
             .uri(uri.as_str());
         // Use of unwrap:
