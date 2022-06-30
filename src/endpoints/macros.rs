@@ -1,3 +1,5 @@
+use macro_pub::macro_pub;
+
 #[doc(hidden)]
 pub mod __endpoint_impl_imports {
     pub use std::option::Option::{None, Some};
@@ -6,12 +8,10 @@ pub mod __endpoint_impl_imports {
 
     pub use {futures_lite, http, serde_json, serde_path_to_error, serde_qs};
 
-    pub use crate::endpoint_impl;
     pub use crate::endpoints::errors::{DeserializeError, ResponseError};
+    pub use crate::endpoints::macros::endpoint_impl;
     pub use crate::endpoints::response::ApiResponse;
 }
-
-pub use crate::endpoint_impl as endpoint;
 
 /// This macro makes use of several calls to [`Result::unwrap`] or
 /// [`Option::unwrap`]. The values that are unwrapped are expected to be of
@@ -21,8 +21,27 @@ pub use crate::endpoint_impl as endpoint;
 /// panics and unwinds, this is considered a bug. A panic means that a variant
 /// needs to be added to the `Error` type, and that one of the following
 /// justification comments is wrong.
+#[macro_pub]
+macro_rules! endpoint {
+    (
+        $client:ident $method:ident,
+        uri: $base:ident / $path:literal,
+        $(vars: [$($var:expr),+],)?
+        $(params: $params:expr,)?
+        $(body: $body:expr,)?
+    ) => {
+        $crate::endpoints::__endpoint_impl_imports::endpoint_impl!{
+            $client $method,
+            uri: $base / $path,
+            $(vars: [$($var),*],)*
+            $(params: $params,)*
+            $(body: $body,)*
+        }
+    };
+}
+
+#[macro_pub]
 #[doc(hidden)]
-#[macro_export]
 macro_rules! endpoint_impl {
     (
         $client:ident $method:ident,

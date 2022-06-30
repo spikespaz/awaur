@@ -12,6 +12,9 @@ categories = [ "rust-patterns", "web-programming", "asynchronous", "concurrency"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Dependencies for members that aren't feature-gated
+macro_pub = "0.1"
+
 # Dependencies for feature "paginator"
 futures-core = { version = "0.3", optional = true }
 async-trait = { version = "0.1", optional = true }
