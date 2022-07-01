@@ -1,3 +1,5 @@
+//! Generic utility macros that don't belong to an obvious module.
+
 use macro_pub::macro_pub;
 
 /// Simple utility macro that defines and instantiates a structure at one

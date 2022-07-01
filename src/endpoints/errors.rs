@@ -1,8 +1,7 @@
-/// This is the most useful error type. This will be returned if the API
-/// response failed to parse either as valid JSON, or according to the
-/// policy for handling unknown fields set by the enabled Cargo features.
-/// See the crate documentation for [conditional
-/// compilation](crate#conditional-compilation).
+/// Error type used if an API request recieved a successful response, but the
+/// body bytes failed to deserialize into the expected strong-type. This
+/// contains the otiginal bytes that failed to deserialize, for debugging
+/// purposes.
 #[derive(Debug, thiserror::Error)]
 #[error("failed to deserialize a response from:\n{uri}\n{error}")]
 pub struct DeserializeError {
