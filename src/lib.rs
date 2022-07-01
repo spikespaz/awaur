@@ -1,6 +1,6 @@
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
-// This is for `macro_pub` to add documentation on <docs.rs>.
+// This is for `macro_pub` to add documentation on <https://docs.rs>.
 #![cfg_attr(doc, feature(decl_macro, rustc_attrs))]
 
 #[cfg(feature = "endpoints")]
