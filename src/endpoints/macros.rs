@@ -42,7 +42,7 @@ use macro_pub::macro_pub;
 /// `From<ResponseError>`. You may want to use the [`thiserror`] crate to wrap
 /// [`DeserializeError`] and [`ResponseError`] into your own
 /// [`std::error::Error`] type's variants. Conversion to your error type is
-/// delegated by [`std::ops::Try`]'s interaction with [`From`].
+/// delegated by [`Into`].
 ///
 /// [`thiserror`]: https://docs.rs/thiserror/latest/thiserror/
 /// ["Matching" section of *The Little Book of Rust Macros*]: https://veykril.github.io/tlborm/decl-macros/macros-methodical.html#matching
@@ -219,7 +219,7 @@ macro_rules! endpoint_impl {
         // the unexpected status, the fully formed URI, and the body bytes in
         // case the server responded with more details.
         if status != 200 {
-            return Err(ResponseError { uri, status, bytes }.into());
+            return Err(ResponseError::__new(uri, bytes, status).into());
         }
 
         let deserializer = &mut serde_json::Deserializer::from_slice(bytes.as_slice());
@@ -230,7 +230,7 @@ macro_rules! endpoint_impl {
         // to `Error::Deserialize`.
         match result {
             Ok(value) => Ok(ApiResponse::__new(bytes, value)),
-            Err(error) => Err(DeserializeError { uri, error, bytes }.into()) ,
+            Err(error) => Err(DeserializeError::__new(uri, bytes, error).into()) ,
         }
     }};
     (@uri, $base:ident, $path:literal) => {

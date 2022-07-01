@@ -58,6 +58,19 @@ impl_field_accessors!(DeserializeError);
 impl_field_accessors!(ResponseError);
 
 impl DeserializeError {
+    #[doc(hidden)]
+    pub fn __new(
+        uri: url::Url,
+        bytes: Vec<u8>,
+        error: serde_path_to_error::Error<serde_json::Error>,
+    ) -> Self {
+        Self {
+            uri,
+            bytes,
+            inner: error,
+        }
+    }
+
     /// Reference to the [`Path`] of the value that failed to deserialize.
     ///
     /// [`Path`]: serde_path_to_error::Path
@@ -77,6 +90,11 @@ impl DeserializeError {
 }
 
 impl ResponseError {
+    #[doc(hidden)]
+    pub fn __new(uri: url::Url, bytes: Vec<u8>, status: http::StatusCode) -> Self {
+        Self { uri, bytes, status }
+    }
+
     /// Copy of the response's status code.
     pub fn status_code(&self) -> http::StatusCode {
         self.status
