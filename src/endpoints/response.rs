@@ -23,22 +23,22 @@ impl<T> ApiResponse<T> {
     }
 
     /// Get an immutable borrow to the response's body bytes.
-    pub fn get_bytes(&self) -> &[u8] {
+    pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
 
     /// Get a mutable borrow to the response's body bytes.
-    pub fn get_bytes_mut(&mut self) -> &mut [u8] {
+    pub fn bytes_mut(&mut self) -> &mut [u8] {
         &mut self.bytes
     }
 
     /// Get an immutable borrow to the value deserialized from bytes.
-    pub fn get_value(&self) -> &T {
+    pub fn value(&self) -> &T {
         &self.value
     }
 
     /// Get a mutable borrow to the value deserialized from bytes.
-    pub fn get_value_mut(&mut self) -> &mut T {
+    pub fn value_mut(&mut self) -> &mut T {
         &mut self.value
     }
 
