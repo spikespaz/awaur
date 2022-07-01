@@ -165,13 +165,13 @@ pub mod __endpoint_impl_imports {
 
     pub use {futures_lite, http, serde_json, serde_path_to_error, serde_qs};
 
+    pub use crate::endpoint_impl;
     pub use crate::endpoints::errors::{DeserializeError, ResponseError};
-    pub use crate::endpoints::macros::endpoint_impl;
     pub use crate::endpoints::response::ApiResponse;
 }
 
 #[doc(hidden)]
-#[macro_pub]
+#[macro_export]
 macro_rules! endpoint_impl {
     (
         $client:ident $method:ident,
