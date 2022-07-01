@@ -27,19 +27,9 @@ impl<T> ApiResponse<T> {
         &self.bytes
     }
 
-    /// Get a mutable borrow to the response's body bytes.
-    pub fn bytes_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes
-    }
-
     /// Get an immutable borrow to the value deserialized from bytes.
     pub fn value(&self) -> &T {
         &self.value
-    }
-
-    /// Get a mutable borrow to the value deserialized from bytes.
-    pub fn value_mut(&mut self) -> &mut T {
-        &mut self.value
     }
 
     /// Take out the response's body bytes, discarding the deserialized data.
