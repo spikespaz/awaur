@@ -1,6 +1,6 @@
 [package]
 name = "awaur"
-version = "0.2.0"
+version = "0.2.1"
 authors = [ "Jacob Birkett <jacob@birkett.dev>" ]
 edition = "2021"
 description = "AWAUR: Asynchronous Web API Utilities for Rust"
@@ -10,6 +10,16 @@ keywords = [ "web", "rest", "async", "api", "utilities" ]
 categories = [ "rust-patterns", "web-programming", "asynchronous", "concurrency" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.docs.rs]
+no-default-features = true
+features = [
+    "paginator",
+    "endpoints",
+    "serde-as-wrapper",
+    "serde-with-base62",
+    "serde-with-json-string"
+]
 
 [dependencies]
 # Dependencies for members that aren't feature-gated
