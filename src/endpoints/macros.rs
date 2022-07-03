@@ -17,7 +17,7 @@ use macro_pub::macro_pub;
 /// does not define a function, but the logic of an expression that generates
 /// the return value of a signature that you create.**
 ///
-/// The one exposed matching rule povides a simple syntax for defining your
+/// The one exposed matching rule provides a simple syntax for defining your
 /// inputs, such as the request body, query parameters and URI path components.
 /// The syntax that this macro expects can be seen in the code block at the
 /// beginning of this page. If you are unfamiliar with macros in Rust, please
@@ -27,6 +27,8 @@ use macro_pub::macro_pub;
 /// > stable until the first major release of this crate. After version 1.0.0,
 /// > every minor increment is purported to be backwards and forwards-compatible
 /// > until the next major release.*
+///
+/// ["Matching" section of *The Little Book of Rust Macros*]: https://veykril.github.io/tlborm/decl-macros/macros-methodical.html#matching
 ///
 /// # Function Signature
 ///
@@ -42,10 +44,9 @@ use macro_pub::macro_pub;
 /// `From<ResponseError>`. You may want to use the [`thiserror`] crate to wrap
 /// [`DeserializeError`] and [`ResponseError`] into your own
 /// [`std::error::Error`] type's variants. Conversion to your error type is
-/// delegated by [`Into`].
+/// delegated by [`Into`] and the [`std::ops::Try`] trait's interaction with it.
 ///
 /// [`thiserror`]: https://docs.rs/thiserror/latest/thiserror/
-/// ["Matching" section of *The Little Book of Rust Macros*]: https://veykril.github.io/tlborm/decl-macros/macros-methodical.html#matching
 ///
 /// **For examples of the intended usage, see the endpoint definitions for the
 /// [`curseforge`] and [`modrinth`] crates.**
@@ -95,9 +96,9 @@ use macro_pub::macro_pub;
 /// Expected to be a repeating pattern of valid expressions in the style of an
 /// array (comma-delimited). The number of items inside the enclosing brackets
 /// (`[]`) is expected to match the number of substitution placeholders (`{}`)
-/// in the `$path` literal. Each expression's evaluation type must implement
-/// [`ToString`] or have the `to_string` method. These will be formatted into
-/// the `$path` string literal using [`format!`].
+/// in the `$path` literal. If your expression's evaluation type implements
+/// [`std::fmt::Display`], you can pass it directly. These will be formatted
+/// into the `$path` string literal using [`format!`].
 ///
 /// #### `$params:expr`
 ///
@@ -199,7 +200,7 @@ macro_rules! endpoint_impl {
         // Use of unwrap:
         // Building the [`isahc::Request`] should realistically never fail,
         // because all of the involved values have already made it past every
-        // preceeding point where the runtime had the opprotunity to panic.
+        // preceding point where the runtime had the opportunity to panic.
         let request = endpoint_impl!(@build, builder $(, $body)?).unwrap();
 
         // Sending the request can easily fail, so this would get bubbled to
@@ -247,7 +248,7 @@ macro_rules! endpoint_impl {
         // The call to [`url::Url::join`] takes a string that is produced by
         // `format!`, where parts of `$path` are replaced, in order, by `$var`
         // items with `ToString`. If it fails, the macro input was not correct.
-        $base.join(&format!($path, $($var.to_string()),*)).unwrap()
+        $base.join(&format!($path, $($var),*)).unwrap()
     };
     (@build, $builder:ident) => {
         $builder.body(())

@@ -1,4 +1,4 @@
-/// Error type used if an API request recieved a successful response, but the
+/// Error type used if an API request received a successful response, but the
 /// body bytes failed to deserialize into the expected strong-type. This
 /// contains the original bytes that failed to deserialize, for debugging
 /// purposes.

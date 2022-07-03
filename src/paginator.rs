@@ -114,7 +114,7 @@ where
 
 impl<'f, D> Stream for PaginatedStream<'f, D>
 where
-    D: PaginationDelegate + Unpin + 'f,
+    D: 'f + PaginationDelegate + Unpin,
     D::Item: Unpin,
 {
     // If the state is `Pending` and the future resolves to an `Err`, that error is
