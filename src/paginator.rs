@@ -54,6 +54,23 @@ pub trait PaginationDelegate {
     fn total_items(&self) -> Option<usize>;
 }
 
+/// Resolution type of the future from [`PaginatedStream::Pending`] and the
+/// inner value of [`PaginatedStream::Ready`].
+pub struct ReadyStateValue<D>
+where
+    D: PaginationDelegate,
+{
+    delegate: D,
+    items: VecDeque<D::Item>,
+}
+
+/// The future will be the result returned from the
+/// [`PaginationDelegate::next_page`], and will either resolve to an `Err` with
+/// `<D as PaginationDelegate>::Error` or a [`PendingFutureOutput`] with the
+/// delegate and response items.
+pub type PendingStateFuture<'f, D> =
+    dyn Future<Output = Result<ReadyStateValue<D>, <D as PaginationDelegate>::Error>> + 'f;
+
 /// This enumerable holds the current state of the paginated stream and also
 /// implements the [`Stream`] trait itself. It is highly recommended to read the
 /// source code of the `Stream` implementation for more documentation about how
@@ -64,34 +81,18 @@ pub enum PaginatedStream<'f, D: PaginationDelegate> {
     /// This is also used to indicate that the state machine is ready for the
     /// next page from the API. This will be set when the state was previously
     /// `Ready` but had no more items to yield.
-    Request {
-        /// The stored delegate to pass between states.
-        delegate: D,
-    },
+    Request(D),
     /// At some point in the past, the delegate was requested to fetch the next
     /// page and has returned a future. This will be polled whenever `poll_next`
     /// is called, eventually resulting in the state changing to `Ready` if
     /// successful, or `Closed` if an error was yielded.
-    Pending {
-        /// The future will be the result returned from the
-        /// [`PaginationDelegate::next_page`], and will either resolve to an
-        /// `Err` or a tuple of the delegate and the items that the API
-        /// responded with.
-        #[allow(clippy::type_complexity)]
-        future: Pin<Box<dyn Future<Output = Result<(D, Vec<D::Item>), D::Error>> + 'f>>,
-    },
+    Pending(Pin<Box<PendingStateFuture<'f, D>>>),
     /// The next page is ready and its current items have been taken and are
     /// currently being yielded to whatever is polling the stream. This state
     /// will remain the same until it runs out of items, and on the very next
     /// poll, the state will change back to `Request` if there is another page,
     /// or `Closed` if the expected number of results has already been yielded.
-    Ready {
-        /// The stored delegate to pass between states.
-        delegate: D,
-        /// The internal buffer of items that will be yielded on calls to
-        /// `poll_next` when this state is active.
-        items: VecDeque<D::Item>,
-    },
+    Ready(ReadyStateValue<D>),
     /// Either an error has occurred or the API has been exhausted of the items
     /// that it is willing to provide. Polling the stream when this is the state
     /// will always yield `Poll::Ready(None)`, and will never change once this
@@ -108,7 +109,7 @@ where
     D: PaginationDelegate,
 {
     fn from(other: D) -> PaginatedStream<'f, D> {
-        PaginatedStream::Request { delegate: other }
+        PaginatedStream::Request(other)
     }
 }
 
@@ -134,17 +135,17 @@ where
             // This state occurs at the entry of the state machine and when there was a poll when
             // the state was `Ready` but had no items to yield. It only holds the
             // `PaginationDelegate` that will be used to update the offset and make new requests.
-            Request { mut delegate } => {
-                self.set(Pending {
-                    // Construct a new future and pin it on the heap.
-                    future: Box::pin(async {
-                        // Request the next page from the delegate and await the result.
-                        let result = delegate.next_page().await;
-                        // Map the `Ok` value of the result to a tuple that includes the delegate
-                        // that was moved into this block.
-                        result.map(|items| (delegate, items))
-                    }),
-                });
+            Request(mut delegate) => {
+                self.set(Pending(Box::pin(async {
+                    // Request the next page from the delegate and await the result.
+                    let result = delegate.next_page().await;
+                    // Map the `Ok` value of the result to a tuple that includes the delegate
+                    // that was moved into this block.
+                    result.map(|items| ReadyStateValue {
+                        delegate,
+                        items: items.into_iter().collect(),
+                    })
+                })));
 
                 // Reawaken the context so that the executor doesn't ignore the future.
                 ctx.waker().wake_by_ref();
@@ -158,23 +159,23 @@ where
             // are available, unpack them to the `Ready` state and move the delegate. If the future
             // still doesn't have results, set the state back to `Pending` and move the fields back
             // into position.
-            Pending { mut future } => match future.as_mut().poll(ctx) {
+            Pending(mut future) => match future.as_mut().poll(ctx) {
                 // The future from the last request returned successfully with new items,
                 // and gave the delegate back.
-                Poll::Ready(Ok((mut delegate, items))) => {
+                Poll::Ready(Ok(ReadyStateValue {
+                    mut delegate,
+                    mut items,
+                })) => {
                     // Tell the delegate the offset for the next page, which is the sum of the
                     // old offset and the number of items that the API sent back.
                     delegate.set_offset(delegate.offset() + items.len());
-                    // Construct a new `VecDeque` so that the items can be popped from the front.
-                    // This should be more efficient than reversing the `Vec`, and less confusing.
-                    let mut items = VecDeque::from(items);
                     // Get the first item out so that it can be yielded. The event that there are no
                     // more items should have been handled by the `Ready` branch, so it should be
                     // safe to unwrap.
                     let popped = items.pop_front().unwrap();
 
                     // Set the new state to `Ready` with the delegate and the items.
-                    self.set(Ready { delegate, items });
+                    self.set(Ready(ReadyStateValue { delegate, items }));
 
                     // Note that this could have been `self.poll_next(ctx)` rather than popping the
                     // item in this branch, but doing everything here is better than moving the
@@ -195,7 +196,7 @@ where
                 Poll::Pending => {
                     // Because the state is currently `Indeterminate` it must be set back to what it
                     // was. This will move the future back into the state.
-                    self.set(Pending { future });
+                    self.set(Pending(future));
 
                     // Tell the callee that we are still waiting for a response.
                     Poll::Pending
@@ -204,16 +205,16 @@ where
             // The request has resolved with data in the past, and there are items ready for us to
             // provide the callee. In the event that there are no more items in the `VecDeque`, we
             // will make the next request and construct the state for `Pending` again.
-            Ready {
+            Ready(ReadyStateValue {
                 delegate,
                 mut items,
-            } => match items.pop_front() {
+            }) => match items.pop_front() {
                 // There is at least one item in the buffer, so yield it.
                 Some(item) => {
                     // Set the state back to `Ready`, even if the items buffer is empty. This allows
                     // the next page request to be made lazily, only after the current page is
                     // exhausted, and then the stream is polled again.
-                    self.set(Ready { delegate, items });
+                    self.set(Ready(ReadyStateValue { delegate, items }));
                     Poll::Ready(Some(Ok(item)))
                 }
                 // There was no item to yield.
@@ -232,7 +233,7 @@ where
                         // Set the state back to `Request` so that the next poll will make a request
                         // for the next page. The offset should have already been updated at a
                         // previous state.
-                        self.set(Request { delegate });
+                        self.set(Request(delegate));
                         // Poll again to make the request and forward the `Poll::Pending`.
                         self.poll_next(ctx)
                     }
@@ -259,7 +260,9 @@ where
         use PaginatedStream::*;
 
         match self {
-            Request { delegate } | Ready { delegate, .. } => (0, delegate.total_items()),
+            Request(delegate) | Ready(ReadyStateValue { delegate, .. }) => {
+                (0, delegate.total_items())
+            }
             _ => (0, None),
         }
     }
